@@ -1,5 +1,5 @@
-import axios from "axios";
-import { FormEvent, useCallback, useMemo } from "react";
+import axios, { AxiosError } from "axios";
+import { FormEvent, useCallback, useMemo, useState } from "react";
 import { Button } from "../../components/Button";
 import { Input } from "../../components/Input";
 import { campoObrigatorio } from "../../helpers/validators/campoObrigatorio";
@@ -8,6 +8,7 @@ import { senhaValida } from "../../helpers/validators/senhaValida";
 import { useValidatedField } from "../../hooks/useValidatedField";
 
 export const Cadastro = () => {
+  const [statusDeEnvio, setStatusDeEnvio] = useState({ errored: false, mensagem: "" });
   const nome = useValidatedField(campoObrigatorio('Nome'));
   const email = useValidatedField(emailValido('E-mail'));
   const codigoAcesso = useValidatedField(campoObrigatorio('Codigo Acesso'));
@@ -40,17 +41,31 @@ export const Cadastro = () => {
       codigoAcesso: codigoAcesso.value
     };
 
-    await axios.post(
-      'https://3.221.159.196:3320/auth/cadastrar',
-      usuario
-    );
+    try {
+      await axios.post(
+        'https://3.221.159.196:3320/auth/cadastrar',
+        usuario
+        );
+        setStatusDeEnvio({ errored: false, mensagem: 'Cadastro realizado com sucesso' });
+    } catch (error) {
+      console.log(error);
+      const err = error as AxiosError;
+      const mensagem = err.response?.data.message;
+      setStatusDeEnvio({ errored: true, mensagem });
+    }
   }
 
   return (
     <div className="min-h-full flex flex-col justify-center py-12 sm:px-6 lg:px-8">
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
         <div className="bg-white py-8 px-4 shadow-2xl sm:rounded-lg sm:px-10">
-
+          {statusDeEnvio.mensagem ? (
+              statusDeEnvio.errored ?
+              <p className="text-center text-red-500">{statusDeEnvio.mensagem}</p> :
+              <p className="text-center text-green-500">{statusDeEnvio.mensagem}</p>
+            ) :
+            <></>
+          }
           <form onSubmit={onSubmit}>
             <div className="mb-5">
               <Input

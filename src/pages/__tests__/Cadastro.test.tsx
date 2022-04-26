@@ -5,6 +5,7 @@ import faker from '@faker-js/faker';
 import { validaErroApresentadoEmTela } from '../../helpers/teste/validaErroApresentadoEmTela';
 import { validaErroNaoApresentadoEmTela } from '../../helpers/teste/validaErroNaoApresentadoEmTela';
 import { setValorInput } from '../../helpers/teste/setValorInput';
+import { preencheFormCorretamente } from '../../helpers/teste/preencheFormCorretamente';
 import axios from 'axios';
 
 const makeSut = () => {
@@ -25,7 +26,14 @@ describe('Cadastro Page', () => {
   });
 
   it('deve validar o formato de e-mail no cadastro', () => {
+    const inputEmail = screen.getByPlaceholderText('e-mail');
+    const emailErrado = 'teste@teste';
+    const emailCorreto = faker.internet.email();
+    const mensagemDeValidacao = 'Formato de e-mail inválido';
 
+    setValorInput(inputEmail, emailErrado);
+    screen.getByText(mensagemDeValidacao);
+    validaErroNaoApresentadoEmTela(inputEmail, emailCorreto, mensagemDeValidacao);
   });
 
   describe('deve validar os critérios de aceitação da senha', () => {
@@ -70,21 +78,22 @@ describe('Cadastro Page', () => {
     });
   });
 
-  it('deve garantir que senha e confirmação sejam iguais', () => {});
-
-  it('deve enviar o formulário se todos os dados estiverem preenchidos corretamente', () => {
-
-  });
-
-  it('deve notificar o usuário que o cadastro foi efetuado com sucesso', () => {
-    // setup
-    jest.spyOn(axios, 'post').mockResolvedValue('ok');
-    const nome = screen.getByPlaceholderText('Nome');
-    const email = screen.getByPlaceholderText('e-mail');
+  it('deve garantir que senha e confirmação sejam iguais', () => {
     const senha = screen.getByPlaceholderText('Senha');
     const confirmacaoSenha = screen.getByPlaceholderText('Confirmação de Senha');
-    const codigoAcesso = screen.getByPlaceholderText('Código de Acesso');
-    const botao = screen.getByText('Cadastrar');
+    const mensagemDeValidacao = 'Senhas não conferem';
+    const senhaTeste1 = 'Teste@1';
+    const senhaTeste2 = 'Teste@2';
+    setValorInput(senha, senhaTeste1);
+    setValorInput(confirmacaoSenha, senhaTeste2);
+
+    screen.getByText(mensagemDeValidacao);
+    validaErroNaoApresentadoEmTela(confirmacaoSenha, senhaTeste1, mensagemDeValidacao);
+  });
+
+  it('deve enviar o formulário se todos os dados estiverem preenchidos corretamente', () => {
+    // setup
+    jest.spyOn(axios, 'post').mockResolvedValue('ok');
     const dados = {
       nome: faker.name.firstName(),
       email: faker.internet.email(),
@@ -93,11 +102,8 @@ describe('Cadastro Page', () => {
     };
 
     // construcao
-    setValorInput(nome, dados.nome);
-    setValorInput(email, dados.email);
-    setValorInput(senha, dados.senha);
-    setValorInput(confirmacaoSenha, dados.senha);
-    setValorInput(codigoAcesso, dados.codigoAcesso);
+    preencheFormCorretamente(dados);
+    const botao = screen.getByText('Cadastrar');
     botao.click();
 
     // asserts
@@ -107,5 +113,53 @@ describe('Cadastro Page', () => {
     );
   });
 
-  it('deve apresentar os erros de validação para o usuário, caso a API retorne erro', () => {});
+  it('deve notificar o usuário que o cadastro foi efetuado com sucesso', async () => {
+    // setup
+    jest.spyOn(axios, 'post').mockResolvedValue('ok');
+    const dados = {
+      nome: faker.name.firstName(),
+      email: faker.internet.email(),
+      senha: 'S3nh@!123',
+      codigoAcesso: faker.lorem.paragraph(),
+    };
+
+    // construcao
+    preencheFormCorretamente(dados);
+    const botao = screen.getByText('Cadastrar');
+    botao.click();
+
+    const mensagemDeConfirmacao = await screen.findByText('Cadastro realizado com sucesso');
+
+    // asserts
+    expect(mensagemDeConfirmacao).toBeInTheDocument();
+  });
+
+  it('deve apresentar os erros de validação para o usuário, caso a API retorne erro', async () => {
+    // setup
+    const mensagemDeErro = "Usuário já existe";
+    jest.spyOn(axios, 'post').mockRejectedValue({
+      response: {
+        data: {
+          statusCode: 400,
+          message: mensagemDeErro,
+          error: "Bad Request"
+        },
+      },
+    });
+    const dados = {
+      nome: faker.name.firstName(),
+      email: faker.internet.email(),
+      senha: 'S3nh@!123',
+      codigoAcesso: faker.lorem.paragraph(),
+    };
+
+    // construcao
+    preencheFormCorretamente(dados);
+    const botao = screen.getByText('Cadastrar');
+    botao.click();
+
+    const mensagem = await screen.findByText(mensagemDeErro);
+    // asserts
+    expect(mensagem).toBeInTheDocument();
+  });
 });
